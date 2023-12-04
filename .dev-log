@@ -1,0 +1,85 @@
+4-dec-2023
+---
+- okay so def is global for the namespace
+  | defining functions within the scope of a function was binding
+  | the definition globally. this is probably why there was that
+  | weird shared state going on. whatever the last (make-cell) call
+  | had enclosed was bound to subsequent calls of its helpers.
+  | this has been rectified by simply binding anonymous functions in
+  | the closure with `let`
+`
+(defn make-cell []
+  (let [add-content* (fn [increment] ...)
+        ...
+        closure (fn [message] ...)]
+   closure))
+`
+- laziness!
+  | propagators are not propagating their values through when content
+  | is added
+`
+(def a (make-cell))
+(def b (make-cell))
+(def c (make-cell))
+(sum a b c)
+(add-content a 1)
+(add-content b 2)
+(content c)
+> []
+`
+  | however, propagators do propagate when values are already stored
+  | in input cells
+`
+(add-content a 1)
+(add-content b 2)
+(sum a b c)
+(content c)
+> 3
+`
+  | right now, i believe this to be the result of clojure's lazy evaluation
+  | of implementors of `seq`, but i have not yet chased down the exact source
+  | of the bug yet
+
+
+30-nov-2023
+---
+- something very strange going on with scope and closures
+`
+(def thirty-two (make-cell))
+(content thirty-two)
+> []
+((thirty-two 'add-content) 32)
+p> 30 ; new content
+p> [] ; former content
+> false ; from alert propagators
+(content thirty-two)
+> []
+`
+- also:
+`
+(def five (make-cell))
+(def thirty-two (make-cell))
+((constant 32) [thirty-two])
+> #'main/five
+> #'main/thirty-two
+> false
+((constant 5) [five])
+Excp> "Inconsistency!" {
+        :content 32
+        :increment 5
+      }
+`
+however!
+`
+(def thirty-two (make-cell))
+((constant 32) [thirty-two])
+> #'main/thirty-two
+> false
+(def five (make-cell))
+((constant 5) [five])
+> #'main/five
+> false
+`
+
+
+- conclude that these defs are doing something very funky
